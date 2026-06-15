@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Video</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:20px;text-align:center;}
+  video{width:100%;max-width:400px;border-radius:12px;margin:10px 0;}
+  .status{background:#1e293b;border-radius:8px;padding:12px;margin:10px 0;font-size:0.85rem;text-align:left;}
+  .ok{color:#22c55e;} .err{color:#ef4444;} .warn{color:#f59e0b;}
+  button{background:#f97316;color:#fff;border:none;border-radius:8px;padding:10px 20px;margin:5px;font-size:1rem;cursor:pointer;}
+</style>
+</head>
+<body>
+<h2>🎬 Test Video Supabase</h2>
+
+<div class="status" id="status">Iniciando prueba...</div>
+
+<video id="testVideo" controls playsinline muted style="width:100%;max-width:400px;border-radius:12px;"></video>
+
+<br>
+<button onclick="tryLoad(1)">▶ Video 1</button>
+<button onclick="tryLoad(2)">▶ Video 2</button>
+<button onclick="tryLoad(3)">▶ Video 3</button>
+
+<div class="status" id="log" style="max-height:200px;overflow-y:auto;"></div>
+
+<script>
+const BASE = 'https://hgyznuqxljrwbfyynjjo.supabase.co/storage/v1/object/public/Videos/';
+const FILES = [
+  'reloj-invicta-1.mp4',
+  'reloj-invicta-2.mp4',
+  'reloj-invicta-3.mp4'
+];
+
+function log(msg, type='') {
+  const el = document.getElementById('log');
+  const div = document.createElement('div');
+  div.className = type;
+  div.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+  el.prepend(div);
+}
+
+function setStatus(msg, type='') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+async function checkURL(url) {
+  try {
+    const r = await fetch(url, {method:'HEAD'});
+    return r.status;
+  } catch(e) {
+    return 'Error: ' + e.message;
+  }
+}
+
+async function tryLoad(num) {
+  const video = document.getElementById('testVideo');
+  const fileName = FILES[num-1];
+  const url = BASE + encodeURIComponent(fileName);
+  
+  setStatus('⏳ Probando Video ' + num + '...', 'warn');
+  log('URL: ' + url);
+  
+  // Verificar acceso HTTP
+  const status = await checkURL(url);
+  log('HTTP Status: ' + status, status === 200 ? 'ok' : 'err');
+  
+  if (status === 200) {
+    video.src = url;
+    video.load();
+    video.play().then(() => {
+      setStatus('✅ Video ' + num + ' reproduciéndose!', 'ok');
+      log('Play exitoso!', 'ok');
+    }).catch(e => {
+      setStatus('⚠️ Cargó pero no reproduce: ' + e.message, 'warn');
+      log('Error play: ' + e.message, 'err');
+    });
+  } else {
+    setStatus('❌ Video ' + num + ' no accesible (HTTP ' + status + ')', 'err');
+    log('No se puede acceder al archivo', 'err');
+    
+    // Intentar URL alternativa sin encode
+    const urlAlt = BASE + fileName.replace(/ /g, '%20');
+    log('Intentando URL alternativa: ' + urlAlt);
+    const status2 = await checkURL(urlAlt);
+    log('HTTP Status alternativo: ' + status2, status2 === 200 ? 'ok' : 'err');
+    if (status2 === 200) {
+      video.src = urlAlt;
+      video.load();
+      video.play().catch(e => log('Error: ' + e.message, 'err'));
+    }
+  }
+}
+
+// Auto-test al cargar
+window.onload = async () => {
+  log('Navegador: ' + navigator.userAgent.substring(0,60));
+  log('Probando acceso a Supabase...');
+  const status = await checkURL(BASE + 'reloj-invicta-1.mp4');
+  if (status === 200) {
+    setStatus('✅ Bucket accesible! Toca un botón para reproducir', 'ok');
+    log('Bucket público OK', 'ok');
+  } else {
+    setStatus('❌ Bucket no accesible (HTTP ' + status + ') — Verifica que el bucket sea público', 'err');
+    log('HTTP ' + status + ' — Bucket NO público o archivos no existen', 'err');
+  }
+};
+</script>
+</body>
+</html>
